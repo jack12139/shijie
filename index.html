@@ -980,6 +980,11 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
 #table .seat.left,#table .seat.right{overflow:hidden}
 #table .seat.left .melds,#table .seat.right .melds{overflow:hidden;max-width:100%}
 #table .seat.left .meld,#table .seat.right .meld{max-width:100%;flex-wrap:wrap}
+#table .center-count{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--gold);pointer-events:none}
+#table .center-count b{font-size:clamp(20px,calc(var(--vh)*.048),34px);line-height:1;font-weight:800;font-variant-numeric:tabular-nums;text-shadow:0 2px 12px rgba(0,0,0,.45)}
+#table .center-count span{font-size:9px;letter-spacing:2px;color:#a9c3b7;opacity:.85}
+html.shorter #table .center-count b{font-size:20px}
+#table .table-center::before{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(78%,132px);height:auto;aspect-ratio:1}
 </style>
 </head>
 <body>
@@ -1053,7 +1058,7 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
           <div class="river top" id="riverTop"></div>
           <div class="river left" id="riverLeft"></div>
           <div class="table-center">
-            <span class="center-mark">川</span>
+            <div class="center-count"><b id="wallNum">84</b><span>余牌</span></div>
           </div>
           <div class="river right" id="riverRight"></div>
           <div class="river bottom" id="riverBottom"></div>
@@ -1074,7 +1079,6 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
     <div class="info-pane" id="infoPane">
       <div class="status-bar">
         <div class="st-main">
-          <span class="st-wall" id="tWall">余 84</span>
           <span class="st-hand" id="tHand">第 1 局</span>
           <span class="st-turn" id="turnLine"></span>
         </div>
@@ -1109,9 +1113,20 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
     for (let t = 0; t < 27; t++) for (let k = 0; k < 4; k++) a.push(tile(t));
     return a;
   }
+  function randInt(n) {
+    if (n <= 0) return 0;
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const buf = new Uint32Array(1);
+      const lim = Math.floor(4294967296 / n) * n;
+      let v = 0;
+      do { crypto.getRandomValues(buf); v = buf[0]; } while (v >= lim);
+      return v % n;
+    }
+    return Math.floor(Math.random() * n);
+  }
   function shuffle(a) {
     for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = randInt(i + 1);
       const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
     }
     return a;
@@ -1391,7 +1406,7 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
         online: true, tick: 0, thinkLeft: 3
       }));
       this.handNo = 0;
-      this.dealer = opts.dealer == null ? Math.floor(Math.random() * 4) : opts.dealer;
+      this.dealer = opts.dealer == null ? randInt(4) : opts.dealer;
       this.phase = 'idle';
       this.wall = []; this.drawIdx = 0; this.tailIdx = -1;
       this.current = -1; this.drawn = null;
@@ -1450,7 +1465,7 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
         for (let s = 0; s < 4; s++) this.players[s].hand.push(this.wall[this.drawIdx++]);
       }
       for (const p of this.players) sortTiles(p.hand);
-      this.swapDir = [1, 3, 2][Math.floor(Math.random() * 3)];
+      this.swapDir = [1, 3, 2][randInt(3)];
       if (this.cfg.huan) {
         this.phase = 'swap';
         this.phaseDeadline = Date.now() + (this.fast ? 0 : this.cfg.swapMs);
@@ -2083,7 +2098,7 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
           seat: p.seat, name: p.name, chips: p.chips, que: p.que,
           hued: p.hued, isAI: p.isAI, auto: p.auto, online: p.online,
           handCount: p.hand.length, thinkLeft: p.thinkLeft,
-          hand: (p.seat === seat || p.hued || revealAll) ? p.hand : null,
+          hand: (p.seat === seat || revealAll) ? p.hand : null,
           melds: p.melds, discards: p.discards, huInfo: p.huInfo
         })),
         lastDiscard: this.lastDiscard,
@@ -2802,8 +2817,10 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
       <h3>规则说明</h3>
       <p><b>牌型</b>：108 张（万 / 条 / 筒 1-9 各 4 张），无字牌，只能碰杠，不能吃。</p>
       <p><b>定缺</b>：开局选择一门缺门，缺门牌必须全部打出，且不能用缺门牌碰、杠、胡。</p>
+      <p><b>换三张</b>：每局随机方向（顺时针 / 逆时针 / 对家），选同一花色三张交换。</p>
       <p><b>血战到底</b>：胡牌后退出本局，剩余玩家继续，直到剩 1 人或牌墙摸完；结束时查花猪与查大叫。</p>
       <p><b>血流成河</b>：胡牌后继续摸打，可以多次胡牌，直到牌墙摸完。</p>
+      <p><b>亮牌</b>：胡牌只亮胡牌张与牌型，剩余手牌保持隐藏；牌局结束后统一亮牌。</p>
       <p><b>计分</b>：底分 × 2^番（封顶）；自摸三家付，点炮由点炮者付；明杠 / 补杠每家 1 倍底分，暗杠每家 2 倍底分。</p>
       <h4>番型</h4>
       <p>平胡、对对胡、七对、龙七对、清一色、金钩钓、杠上花、杠上炮、抢杠胡、海底捞月、天胡 / 地胡、根。</p>
@@ -3660,7 +3677,11 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
     const bits = [];
     if (S.view && p.seat === S.view.dealer) bits.push('<i class="b dealer">庄</i>');
     if (p.que != null) bits.push(`<i class="b que">缺${SUITS[p.que]}</i>`);
-    if (p.hued) bits.push('<i class="b hu">胡</i>');
+    if (p.hued) {
+      const hs = p.huInfo || [];
+      const last = hs[hs.length - 1];
+      bits.push(`<i class="b hu">胡${last ? ' ' + MJ.tileName(last.tile) : ''}${hs.length > 1 ? '×' + hs.length : ''}</i>`);
+    }
     if (p.isAI) bits.push('<i class="b ai">AI</i>');
     if (S.view && p.seat === S.view.longThinkSeat && p.seat !== S.seat) bits.push('<i class="b think">长考</i>');
     if (S.view && p.seat === S.seat && S.view.me && S.view.me.thinkLeft > 0 && S.view.me.thinkLeft < 3) {
@@ -3704,7 +3725,7 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
     $('#tCode').textContent = S.mode === 'solo' ? '单机' : (S.net.code || '----');
     $('#tMode').textContent = modeName(c.mode);
     $('#tHand').textContent = '第 ' + v.handNo + ' 局';
-    $('#tWall').textContent = '余 ' + v.wallLeft;
+    $('#wallNum').textContent = v.wallLeft;
     const caps = { top: 'Top', left: 'Left', right: 'Right', bottom: 'Bottom' };
     ['top', 'left', 'right'].forEach(pos => {
       const p = seatOf(v, posSeat[pos]);
@@ -3728,7 +3749,7 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
     if (db) db.disabled = !(v.me.options && v.me.options.act === 'turn' && S.ui.sel);
     let line = '';
     if (v.phase === 'que') line = '定缺中 · 已定 ' + v.players.filter(p => p.que != null).length + '/4';
-    else if (v.phase === 'swap') line = '换三张 · 已换 ' + v.players.filter(p => p.swapped).length + '/4';
+    else if (v.phase === 'swap') line = '换三张 · ' + swapDirText(v.swapDir) + ' · 已换 ' + v.players.filter(p => p.swapped).length + '/4';
     else if (v.phase === 'play' && v.claim) line = `<b>${esc(seatOf(v, v.claim.from) ? seatOf(v, v.claim.from).name : '')}</b> 打出 ${MJ.tileName(v.claim.tile.t)} · 等待响应`;
     else if (v.phase === 'play' && v.current >= 0) {
       const cp = seatOf(v, v.current);
@@ -3826,7 +3847,7 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
       if (pane) pane.classList.add('prompting');
     } else if (o.canSwap) {
       p.innerHTML = `<div class="cp-title">换三张</div>
-        <div class="cp-sub">选择同一花色的三张牌</div>
+        <div class="cp-sub">${swapDirText(v.swapDir)}换牌 · 选择同一花色的三张牌</div>
         <div class="cp-row"><span class="swap-sel">已选 ${S.ui.swap.length}/3</span>
         <button class="btn primary" id="btnSwap" ${S.ui.swap.length === 3 ? '' : 'disabled'}>确认</button></div>
         <div class="cp-timer" data-deadline="${v.phaseDeadline || 0}"></div>`;
@@ -3838,7 +3859,7 @@ html.short #table .icon-btn{width:30px;height:30px;line-height:30px}
       if (pane) pane.classList.remove('prompting');
     }
   }
-  function swapDirText(d) { return d === 1 ? '逆时针 ' : (d === 3 ? '顺时针 ' : '对家 '); }
+  function swapDirText(d) { return d === 1 ? '逆时针' : (d === 3 ? '顺时针' : '对家'); }
   function handleResult(v) {
     if (v.phase === 'end' && v.result) {
       if (S.ui.resultAt === v.result.at) return;
